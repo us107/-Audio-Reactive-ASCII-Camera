@@ -1,0 +1,9 @@
+{
+  "name": "Audio-Reactive ASCII Camera",
+  "description": "A high-performance real-time ASCII art generator that transforms your camera feed based on live audio input using WebGL and Web Audio API.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "display-capture"
+  ]
+}
