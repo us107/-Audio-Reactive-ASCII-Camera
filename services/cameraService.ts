@@ -5,19 +5,33 @@ export class CameraService {
 
   async start(): Promise<HTMLVideoElement> {
     try {
+      // Use flexible constraints to avoid 'OverconstrainedError' or 'PermissionDenied' on hardware limitations
       this.stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { width: 640, height: 480 },
+        video: { 
+          width: { ideal: 640 }, 
+          height: { ideal: 480 },
+          facingMode: "user"
+        },
         audio: false 
       });
+      
       this.video = document.createElement('video');
       this.video.srcObject = this.stream;
-      this.video.play();
+      // Critical for mobile/iOS
+      this.video.setAttribute('playsinline', 'true');
+      this.video.setAttribute('muted', 'true');
+      
+      await this.video.play();
       
       return new Promise((resolve) => {
         if (!this.video) return;
-        this.video.onloadedmetadata = () => {
-          resolve(this.video!);
-        };
+        if (this.video.readyState >= 2) {
+          resolve(this.video);
+        } else {
+          this.video.onloadedmetadata = () => {
+            resolve(this.video!);
+          };
+        }
       });
     } catch (error) {
       console.error('Error starting camera service:', error);
@@ -26,7 +40,13 @@ export class CameraService {
   }
 
   stop(): void {
-    this.stream?.getTracks().forEach(track => track.stop());
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+    }
+    if (this.video) {
+      this.video.pause();
+      this.video.srcObject = null;
+    }
     this.video = null;
     this.stream = null;
   }

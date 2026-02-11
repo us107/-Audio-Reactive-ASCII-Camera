@@ -32,23 +32,26 @@ const App: React.FC = () => {
     return () => window.removeEventListener('resize', updateResolution);
   }, [config.resolutionWidth]);
 
-  // Start Camera
+  const initCamera = useCallback(async () => {
+    try {
+      setError(null);
+      const videoElement = await cameraServiceRef.current.start();
+      setVideo(videoElement);
+    } catch (err: any) {
+      console.error(err);
+      setError("Camera access was denied or failed. Please ensure you have granted camera permissions in your browser settings and that no other app is using the camera.");
+    }
+  }, []);
+
+  // Start Camera on mount
   useEffect(() => {
-    const initCamera = async () => {
-      try {
-        const videoElement = await cameraServiceRef.current.start();
-        setVideo(videoElement);
-      } catch (err) {
-        setError("Camera access was denied. Please check your browser permissions to enable the ASCII visualizer.");
-      }
-    };
     initCamera();
 
     return () => {
       cameraServiceRef.current.stop();
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
     };
-  }, []);
+  }, [initCamera]);
 
   // Update loop for audio features
   useEffect(() => {
@@ -88,7 +91,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="relative w-screen h-screen bg-black overflow-hidden flex flex-col">
+    <div className="relative w-screen h-screen bg-black overflow-hidden flex flex-col text-white">
       {error && (
         <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/90 p-6 text-center animate-in fade-in duration-300">
           <div className="max-w-md w-full space-y-6 p-8 rounded-3xl border border-white/10 bg-zinc-900/50 backdrop-blur-3xl shadow-2xl">
@@ -100,6 +103,12 @@ const App: React.FC = () => {
               <p className="text-sm text-white/60 leading-relaxed">{error}</p>
             </div>
             <div className="pt-4 flex flex-col gap-3">
+              <button 
+                onClick={initCamera}
+                className="w-full py-4 bg-white text-black font-black text-xs tracking-widest uppercase rounded-xl hover:bg-zinc-200 transition-all active:scale-95 shadow-lg"
+              >
+                Retry Camera Access
+              </button>
               <button 
                 onClick={() => {
                   setError(null);
@@ -128,7 +137,7 @@ const App: React.FC = () => {
             video={video} 
             audioFeatures={audioFeatures} 
           />
-        ) : (
+        ) : !error && (
           <div className="w-full h-full flex items-center justify-center">
             <div className="space-y-4 text-center">
               <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
