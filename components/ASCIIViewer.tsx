@@ -38,16 +38,23 @@ const ASCIIViewer: React.FC<ASCIIViewerProps> = ({ config, video, audioFeatures 
   // Initialize MediaPipe
   useEffect(() => {
     const MP = (window as any).SelfieSegmentation;
-    if (!MP) return;
-    const selfieSegmentation = new MP({
-      locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/${file}`,
-    });
-    selfieSegmentation.setOptions({ modelSelection: 1, selfieMode: false });
-    selfieSegmentation.onResults((results: any) => {
-      lastMaskResults.current = results;
-      isProcessing.current = false;
-    });
-    segmentationRef.current = selfieSegmentation;
+    if (!MP) {
+      console.warn("MediaPipe SelfieSegmentation not found in window.");
+      return;
+    }
+    try {
+      const selfieSegmentation = new MP({
+        locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/${file}`,
+      });
+      selfieSegmentation.setOptions({ modelSelection: 1, selfieMode: false });
+      selfieSegmentation.onResults((results: any) => {
+        lastMaskResults.current = results;
+        isProcessing.current = false;
+      });
+      segmentationRef.current = selfieSegmentation;
+    } catch (e) {
+      console.error("Failed to init MediaPipe:", e);
+    }
     return () => segmentationRef.current?.close();
   }, []);
 
@@ -75,7 +82,7 @@ const ASCIIViewer: React.FC<ASCIIViewerProps> = ({ config, video, audioFeatures 
 
   useEffect(() => {
     if (!mountRef.current) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mountRef.current.appendChild(renderer.domElement);
@@ -90,7 +97,7 @@ const ASCIIViewer: React.FC<ASCIIViewerProps> = ({ config, video, audioFeatures 
     return () => {
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
-      mountRef.current?.removeChild(renderer.domElement);
+      if (mountRef.current) mountRef.current.innerHTML = '';
     };
   }, []);
 
@@ -110,7 +117,7 @@ const ASCIIViewer: React.FC<ASCIIViewerProps> = ({ config, video, audioFeatures 
       ctx.fillStyle = 'black';
       ctx.fillRect(0, 0, atlasSize, atlasSize);
       ctx.fillStyle = 'white';
-      ctx.font = `bold ${cellSize * 0.9}px monospace`;
+      ctx.font = `bold ${cellSize * 0.8}px monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       for (let i = 0; i < charSet.length; i++) {
@@ -236,7 +243,7 @@ const ASCIIViewer: React.FC<ASCIIViewerProps> = ({ config, video, audioFeatures 
       const renderer = rendererRef.current;
       const mesh = instancedMeshRef.current;
       const ctx = videoCtxRef.current;
-      if (!renderer || !mesh || !ctx || !video) return;
+      if (!renderer || !mesh || !ctx || !video || video.readyState < 2) return;
 
       const { resolutionWidth: cols, resolutionHeight: rows, asciiSet: charSet } = config;
       const s = config.smoothing;
@@ -324,7 +331,7 @@ const ASCIIViewer: React.FC<ASCIIViewerProps> = ({ config, video, audioFeatures 
     return () => cancelAnimationFrame(frameId);
   }, [config, video]);
 
-  return <div ref={mountRef} className="w-full h-full touch-none" />;
+  return <div ref={mountRef} className="w-full h-full touch-none bg-black" />;
 };
 
 export default ASCIIViewer;

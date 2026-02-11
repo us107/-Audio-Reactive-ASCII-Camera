@@ -5,49 +5,59 @@ export class CameraService {
 
   async start(): Promise<HTMLVideoElement> {
     try {
-      // Use flexible constraints to avoid 'OverconstrainedError' or 'PermissionDenied' on hardware limitations
+      if (this.stream) this.stop();
+
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
-          width: { ideal: 640 }, 
-          height: { ideal: 480 },
+          width: { ideal: 1280 }, 
+          height: { ideal: 720 },
           facingMode: "user"
         },
         audio: false 
       });
       
-      this.video = document.createElement('video');
-      this.video.srcObject = this.stream;
-      // Critical for mobile/iOS
-      this.video.setAttribute('playsinline', 'true');
-      this.video.setAttribute('muted', 'true');
+      const video = document.createElement('video');
+      video.srcObject = this.stream;
+      video.setAttribute('playsinline', 'true');
+      video.setAttribute('webkit-playsinline', 'true');
+      video.muted = true;
+      video.autoplay = true;
       
-      await this.video.play();
+      this.video = video;
       
-      return new Promise((resolve) => {
-        if (!this.video) return;
-        if (this.video.readyState >= 2) {
-          resolve(this.video);
-        } else {
-          this.video.onloadedmetadata = () => {
-            resolve(this.video!);
-          };
-        }
+      // Wait for the video to be ready
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("Camera timeout - video metadata failed to load.")), 8000);
+        
+        video.onloadedmetadata = () => {
+          video.play().then(() => {
+            clearTimeout(timeout);
+            resolve();
+          }).catch(reject);
+        };
       });
+      
+      return video;
     } catch (error) {
-      console.error('Error starting camera service:', error);
+      console.error('CameraService.start failed:', error);
+      this.stop();
       throw error;
     }
   }
 
   stop(): void {
     if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
+      this.stream.getTracks().forEach(track => {
+        track.stop();
+        this.stream?.removeTrack(track);
+      });
+      this.stream = null;
     }
     if (this.video) {
       this.video.pause();
       this.video.srcObject = null;
+      this.video.load();
+      this.video = null;
     }
-    this.video = null;
-    this.stream = null;
   }
 }
